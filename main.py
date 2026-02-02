@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from models import Products
+from database import SessionLocal
 
 app = FastAPI()
 
@@ -15,6 +16,9 @@ products = [
 
 @app.get("/products")
 def All_products():
+    db = SessionLocal()
+    db.query()
+
     return products
 
 @app.post("/produts/post")
