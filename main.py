@@ -1,9 +1,9 @@
-from fastapi import FastAPI, Depends
-from schemas import ProductBase, ProductResponse, ProductCreate
-from database import get_db, engine
-import models
+from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
+import models, schemas
+from database import get_db, engine
 
+# create tables
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
@@ -12,46 +12,65 @@ app = FastAPI()
 def first_api_call():
     return "hello world"
 
-products = [
-    ProductBase(id=1, name="phone", description="IOS", price=999, quntity=5),
-    ProductBase(id=2, name="laptop", description="Lenevo", price=99, quntity=4),
-    ProductBase(id=3, name="computer", description="Acer", price=889, quntity=3)
-]
-
-@app.post("/products", response_model=ProductResponse)
-def All_products(product: ProductCreate, db : Session = Depends(get_db)):
-    db_product = models.Product_db(**product.dict())
+# CREATE product
+@app.post("/products", response_model=schemas.ProductResponse)
+def add_product(
+    product: schemas.ProductCreate,
+    db: Session = Depends(get_db)
+):
+    db_product = models.Product_db(**product.model_dump())
     db.add(db_product)
     db.commit()
     db.refresh(db_product)
-
     return db_product
 
-@app.get("/product_details")
-def product_detail():
-    return products
+# READ all products
+@app.get("/products", response_model=list[schemas.ProductResponse])
+def get_products(db: Session = Depends(get_db)):
+    return db.query(models.Product_db).all()
 
+# READ product by id
+@app.get("/products/{product_id}", response_model=schemas.ProductResponse)
+def get_product(product_id: int, db: Session = Depends(get_db)):
+    product = db.query(models.Product_db).filter(
+        models.Product_db.id == product_id
+    ).first()
 
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
 
-@app.post("/produts/post")
-def Add_products(product : ProductBase):
-    products.append(product)
     return product
 
-@app.put("/products/put")
-def update_products(id : int, product : ProductBase):
-    for i in range(len(products)):
-        if products[i].id == id:
-            products[i] = product
+# UPDATE product
+@app.put("/products/{product_id}")
+def update_product(
+    product_id: int,
+    product: schemas.ProductCreate,
+    db: Session = Depends(get_db)
+):
+    db_product = db.query(models.Product_db).filter(
+        models.Product_db.id == product_id
+    ).first()
 
-    return "update successful"
+    if not db_product:
+        raise HTTPException(status_code=404, detail="Product not found")
 
-@app.delete("/products/delete")
-def delete_products(id : int):
-    for i in range(len(products)):
-        if products[i].id == id:
-            del products[i]
-            return "deleted"
-        
+    for key, value in product.model_dump().items():
+        setattr(db_product, key, value)
 
+    db.commit()
+    return {"message": "Product updated successfully"}
 
+# DELETE product
+@app.delete("/products/{product_id}")
+def delete_product(product_id: int, db: Session = Depends(get_db)):
+    db_product = db.query(models.Product_db).filter(
+        models.Product_db.id == product_id
+    ).first()
+
+    if not db_product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    db.delete(db_product)
+    db.commit()
+    return {"message": "Product deleted successfully"}
