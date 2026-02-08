@@ -32,45 +32,34 @@ def get_products(db: Session = Depends(get_db)):
 # READ product by id
 @app.get("/products/{product_id}", response_model=schemas.ProductResponse)
 def get_product(product_id: int, db: Session = Depends(get_db)):
-    product = db.query(models.Product_db).filter(
-        models.Product_db.id == product_id
-    ).first()
+    for product in db.query(models.Product_db).all():
+        if product.id == product_id:
+            return product
 
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    return product
-
 # UPDATE product
 @app.put("/products/{product_id}")
-def update_product(
-    product_id: int,
-    product: schemas.ProductCreate,
-    db: Session = Depends(get_db)
-):
-    db_product = db.query(models.Product_db).filter(
-        models.Product_db.id == product_id
-    ).first()
-
-    if not db_product:
-        raise HTTPException(status_code=404, detail="Product not found")
-
-    for key, value in product.model_dump().items():
-        setattr(db_product, key, value)
-
-    db.commit()
-    return {"message": "Product updated successfully"}
+def update_product(product_id: int, product: schemas.ProductCreate, db: Session = Depends(get_db)):
+    for db_product in db.query(models.Product_db).all():
+        if db_product.id == product_id:
+            db_product.name = product.name
+            db_product.description = product.description
+            db_product.price = product.price
+            db_product.quntity = product.quntity
+            db.commit()
+            return {"message": "Product updated successfully"}
 
 # DELETE product
 @app.delete("/products/{product_id}")
 def delete_product(product_id: int, db: Session = Depends(get_db)):
-    db_product = db.query(models.Product_db).filter(
-        models.Product_db.id == product_id
-    ).first()
-
+    for db_product in db.query(models.Product_db).all():
+        if db_product.id == product_id:
+            db.delete(db_product)
+            db.commit()
+    
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
-
-    db.delete(db_product)
-    db.commit()
+    
     return {"message": "Product deleted successfully"}
