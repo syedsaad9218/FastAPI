@@ -2,18 +2,27 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 import models, schemas
 from database import get_db, engine
+from fastapi.middleware.cors import CORSMiddleware
 
 # create tables
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # For development only
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.get("/")
 def first_api_call():
     return "hello world"
 
 # CREATE product
-@app.post("/products", response_model=schemas.ProductResponse)
+@app.post("/create_products", response_model=schemas.ProductResponse)
 def add_product(
     product: schemas.ProductCreate,
     db: Session = Depends(get_db)
@@ -25,12 +34,12 @@ def add_product(
     return db_product
 
 # READ all products
-@app.get("/products", response_model=list[schemas.ProductResponse])
+@app.get("/read_products", response_model=list[schemas.ProductResponse])
 def get_products(db: Session = Depends(get_db)):
     return db.query(models.Product_db).all()
 
 # READ product by id
-@app.get("/products/{product_id}", response_model=schemas.ProductResponse)
+@app.get("/read_by_products/{product_id}", response_model=schemas.ProductResponse)
 def get_product(product_id: int, db: Session = Depends(get_db)):
     for product in db.query(models.Product_db).all():
         if product.id == product_id:
@@ -40,7 +49,7 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Product not found")
 
 # UPDATE product
-@app.put("/products/{product_id}")
+@app.put("/update_products/{product_id}")
 def update_product(product_id: int, product: schemas.ProductCreate, db: Session = Depends(get_db)):
     for db_product in db.query(models.Product_db).all():
         if db_product.id == product_id:
@@ -52,7 +61,7 @@ def update_product(product_id: int, product: schemas.ProductCreate, db: Session 
             return {"message": "Product updated successfully"}
 
 # DELETE product
-@app.delete("/products/{product_id}")
+@app.delete("/delete_products/{product_id}")
 def delete_product(product_id: int, db: Session = Depends(get_db)):
     for db_product in db.query(models.Product_db).all():
         if db_product.id == product_id:
